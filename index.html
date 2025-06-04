@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Exhibition Behaviour Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f7f9fb; }
+    h1, h2, h3 { text-align: center; }
+    canvas { border: 1px solid #999; background: #fff; cursor: crosshair; }
+    #dashboardView, #projectView { margin: 0 auto; max-width: 1000px; }
+    input, button, select, textarea { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
+    #container { display: flex; gap: 20px; }
+    #pinSidebar { width: 240px; background: #eef0f3; padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
+    #profileForm { margin-top: 20px; }
+    .field { margin-bottom: 10px; }
+    .field input, .field textarea, .field select { width: 100%; }
+    #zoomControls, #visitorControls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    #canvasContainer { position: relative; }
+    canvas { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+<div id="dashboardView">
+  <h1>Exhibition Behaviour Tracker</h1>
+  <input type="file" id="floorUpload" accept="image/*">
+  <input type="text" id="projectName" placeholder="Project name">
+  <input type="password" id="projectPassword" placeholder="Set project password">
+  <button onclick="createProject()">Create Project</button>
+  <h2>Saved Projects</h2>
+  <ul id="projectList"></ul>
+</div>
+
+<div id="projectView" style="display:none;">
+  <h2 id="projectTitle"></h2>
+  <button onclick="backToDashboard()">← Back</button>
+  <button onclick="deleteProject()" style="color: red;">Delete Project</button>
+
+  <div id="container">
+    <div id="canvasContainer">
+      <canvas id="floorMap" width="800" height="600"></canvas>
+      <div id="zoomControls">
+        <button onclick="zoomIn()">Zoom In</button>
+        <button onclick="zoomOut()">Zoom Out</button>
+        <button onclick="resetZoom()">Reset</button>
+      </div>
+    </div>
+
+    <div id="pinSidebar">
+      <label>Choose Behaviour:</label>
+      <select id="behaviorType"></select>
+      <input type="text" id="customBehavior" placeholder="New behaviour">
+      <input type="color" id="customColor" value="#000000">
+      <button onclick="addCustomBehavior()">+ Add Behaviour</button>
+
+      <label>Visitor ID:</label>
+      <input type="number" id="visitorId" value="1" min="1">
+      <div id="visitorControls">
+        <button onclick="resetVisitorPins()">Reset Pins</button>
+        <button onclick="saveProject()">Save Project</button>
+        <button onclick="downloadCSV()">Export CSV</button>
+      </div>
+
+      <label>Filter:</label>
+      <select id="filterType" onchange="filterPins()">
+        <option value="All">All Behaviours</option>
+      </select>
+    </div>
+  </div>
+
+  <h3>Visitor Profile</h3>
+  <div id="profileForm">
+    <div id="profileFields">
+      <div class="field"><label>Start time:</label><input type="text" id="startTime"></div>
+      <div class="field"><label>End time:</label><input type="text" id="endTime"></div>
+      <div class="field"><label>Direction:</label><select id="direction"><option>Turned left</option><option>Turned right</option></select></div>
+      <div class="field"><label>Audience:</label><select id="audience"><option>Independent Adult</option><option>Family</option></select></div>
+      <div class="field"><label>Age:</label><select id="age"><option>16–18</option><option>19–22</option><option>23–29</option><option>30–34</option><option>35–50</option><option>51+</option></select></div>
+      <div class="field"><label>Gender:</label><select id="gender"><option>Male</option><option>Female</option></select></div>
+      <div class="field"><label>Party size:</label><select id="partySize"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6+</option></select></div>
+      <div class="field"><label>Comments:</label><textarea id="comments"></textarea></div>
+    </div>
+    <button onclick="downloadProfile()">Export Visitor Profile</button>
+  </div>
+</div>
+</body>
+</html>
+
