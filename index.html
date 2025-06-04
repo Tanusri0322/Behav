@@ -4,19 +4,15 @@
   <meta charset="UTF-8">
   <title>Exhibition Behaviour Tracker</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f7f9fb; }
+    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f7f9fb; }
     h1, h2, h3 { text-align: center; }
-    canvas { border: 1px solid #999; background: #fff; cursor: crosshair; }
-    #dashboardView, #projectView { margin: 0 auto; max-width: 1000px; }
-    input, button, select, textarea { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
-    #container { display: flex; gap: 20px; }
-    #pinSidebar { width: 240px; background: #eef0f3; padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
-    #profileForm { margin-top: 20px; }
-    .field { margin-bottom: 10px; }
-    .field input, .field textarea, .field select { width: 100%; }
-    #zoomControls, #visitorControls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-    #canvasContainer { position: relative; }
-    canvas { max-width: 100%; height: auto; }
+    #projectView, #dashboardView { max-width: 1200px; margin: auto; }
+    canvas { border: 1px solid #ccc; background: #fff; cursor: crosshair; }
+    #container { display: flex; gap: 20px; margin-top: 20px; }
+    #pinSidebar, #profileForm { width: 300px; background: #eef0f3; padding: 15px; border-radius: 8px; border: 1px solid #ccc; }
+    input, select, textarea, button { width: 100%; padding: 8px; margin: 5px 0; }
+    #zoomControls, #visitorControls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
+    canvas { width: 800px; height: 600px; }
   </style>
 </head>
 <body>
@@ -36,7 +32,7 @@
   <button onclick="deleteProject()" style="color: red;">Delete Project</button>
 
   <div id="container">
-    <div id="canvasContainer">
+    <div>
       <canvas id="floorMap" width="800" height="600"></canvas>
       <div id="zoomControls">
         <button onclick="zoomIn()">Zoom In</button>
@@ -65,23 +61,208 @@
         <option value="All">All Behaviours</option>
       </select>
     </div>
-  </div>
 
-  <h3>Visitor Profile</h3>
-  <div id="profileForm">
-    <div id="profileFields">
-      <div class="field"><label>Start time:</label><input type="text" id="startTime"></div>
-      <div class="field"><label>End time:</label><input type="text" id="endTime"></div>
-      <div class="field"><label>Direction:</label><select id="direction"><option>Turned left</option><option>Turned right</option></select></div>
-      <div class="field"><label>Audience:</label><select id="audience"><option>Independent Adult</option><option>Family</option></select></div>
-      <div class="field"><label>Age:</label><select id="age"><option>16–18</option><option>19–22</option><option>23–29</option><option>30–34</option><option>35–50</option><option>51+</option></select></div>
-      <div class="field"><label>Gender:</label><select id="gender"><option>Male</option><option>Female</option></select></div>
-      <div class="field"><label>Party size:</label><select id="partySize"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6+</option></select></div>
-      <div class="field"><label>Comments:</label><textarea id="comments"></textarea></div>
+    <div id="profileForm">
+      <h3>Visitor Profile</h3>
+      <input type="text" id="startTime" placeholder="Start time">
+      <input type="text" id="endTime" placeholder="End time">
+      <select id="direction">
+        <option>Turned left</option><option>Turned right</option>
+      </select>
+      <select id="audience">
+        <option>Independent Adult</option><option>Family</option>
+      </select>
+      <select id="age">
+        <option>16–18</option><option>19–22</option><option>23–29</option><option>30–34</option><option>35–50</option><option>51+</option>
+      </select>
+      <select id="gender">
+        <option>Male</option><option>Female</option>
+      </select>
+      <select id="partySize">
+        <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6+</option>
+      </select>
+      <textarea id="comments" placeholder="Comments"></textarea>
+      <button onclick="downloadProfile()">Export Visitor Profile</button>
     </div>
-    <button onclick="downloadProfile()">Export Visitor Profile</button>
   </div>
 </div>
+
+<script>
+let currentProject = null, pins = [], behaviors = [], img = new Image();
+let filter = "All", scale = 1;
+const canvas = document.getElementById('floorMap');
+const ctx = canvas.getContext('2d');
+
+function createProject() {
+  const name = document.getElementById('projectName').value.trim();
+  const file = document.getElementById('floorUpload').files[0];
+  const password = document.getElementById('projectPassword').value;
+  if (!name || !file || !password) return alert("Fill all fields.");
+  const reader = new FileReader();
+  reader.onload = () => {
+    const project = { name, image: reader.result, pins: [], behaviors: [], password };
+    localStorage.setItem(name, JSON.stringify(project));
+    openProject(name);
+  };
+  reader.readAsDataURL(file);
+}
+
+function listProjects() {
+  const list = document.getElementById('projectList');
+  list.innerHTML = '';
+  Object.keys(localStorage).forEach(key => {
+    const project = JSON.parse(localStorage.getItem(key));
+    if (project?.image) {
+      const li = document.createElement('li');
+      li.innerHTML = `<button onclick="promptPassword('${key}')">${key}</button>`;
+      list.appendChild(li);
+    }
+  });
+}
+
+function promptPassword(name) {
+  const entered = prompt("Enter password:");
+  const proj = JSON.parse(localStorage.getItem(name));
+  if (entered === proj.password) openProject(name);
+  else alert("Incorrect password");
+}
+
+function openProject(name) {
+  currentProject = JSON.parse(localStorage.getItem(name));
+  pins = currentProject.pins || [];
+  behaviors = currentProject.behaviors || [];
+  document.getElementById('dashboardView').style.display = 'none';
+  document.getElementById('projectView').style.display = 'block';
+  document.getElementById('projectTitle').textContent = currentProject.name;
+  img.onload = () => { ctx.setTransform(1, 0, 0, 1, 0, 0); scale = 1; ctx.drawImage(img, 0, 0); redrawPins(); };
+  img.src = currentProject.image;
+  updateBehaviorOptions();
+}
+
+function updateBehaviorOptions() {
+  const bSel = document.getElementById('behaviorType'), fSel = document.getElementById('filterType');
+  bSel.innerHTML = ''; fSel.innerHTML = '<option value="All">All Behaviours</option>';
+  behaviors.forEach(b => {
+    const o1 = new Option(b.name, b.name); o1.dataset.color = b.color;
+    const o2 = new Option(b.name, b.name);
+    bSel.add(o1); fSel.add(o2);
+  });
+}
+
+function addCustomBehavior() {
+  const name = document.getElementById('customBehavior').value.trim();
+  const color = document.getElementById('customColor').value;
+  if (!name) return alert("Enter a name");
+  if (behaviors.find(b => b.name === name)) return alert("Already exists");
+  behaviors.push({ name, color }); updateBehaviorOptions(); document.getElementById('customBehavior').value = '';
+}
+
+function backToDashboard() {
+  currentProject = null; pins = []; behaviors = [];
+  document.getElementById('projectView').style.display = 'none';
+  document.getElementById('dashboardView').style.display = 'block';
+  listProjects();
+}
+
+function deleteProject() {
+  if (currentProject && confirm("Delete this project?")) {
+    localStorage.removeItem(currentProject.name);
+    backToDashboard();
+  }
+}
+
+canvas.addEventListener('click', (e) => {
+  const r = canvas.getBoundingClientRect();
+  const x = (e.clientX - r.left) / scale;
+  const y = (e.clientY - r.top) / scale;
+  const bSel = document.getElementById('behaviorType');
+  const behavior = bSel.value;
+  const color = bSel.options[bSel.selectedIndex].dataset.color;
+  const visitor = document.getElementById('visitorId').value;
+  const timestamp = new Date().toLocaleTimeString();
+  pins.push({ id: Date.now(), x, y, behavior, color, visitor, timestamp });
+  redrawPins();
+});
+
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  const x = (e.clientX - r.left) / scale;
+  const y = (e.clientY - r.top) / scale;
+  pins = pins.filter(p => Math.hypot(p.x - x, p.y - y) > 10);
+  redrawPins();
+});
+
+function redrawPins() {
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+  for (const pin of pins) {
+    if (filter === "All" || pin.behavior === filter) {
+      ctx.beginPath(); ctx.arc(pin.x, pin.y, 6, 0, 2 * Math.PI);
+      ctx.fillStyle = pin.color; ctx.fill(); ctx.stroke();
+      ctx.font = "10px Arial"; ctx.fillStyle = "black";
+      ctx.fillText(pin.behavior[0] + pin.visitor, pin.x - 6, pin.y + 4);
+    }
+  }
+}
+
+function filterPins() {
+  filter = document.getElementById('filterType').value;
+  redrawPins();
+}
+
+function resetVisitorPins() {
+  const visitor = document.getElementById('visitorId').value;
+  if (confirm("Remove all pins for Visitor " + visitor + "?")) {
+    pins = pins.filter(p => p.visitor !== visitor);
+    redrawPins();
+  }
+}
+
+function saveProject() {
+  currentProject.pins = pins; currentProject.behaviors = behaviors;
+  localStorage.setItem(currentProject.name, JSON.stringify(currentProject));
+  alert("Saved!");
+}
+
+function downloadCSV() {
+  const visitor = document.getElementById('visitorId').value;
+  let csv = "ID,X,Y,Behaviour,Visitor,Timestamp\n";
+  pins.forEach(p => { if (filter === "All" || p.behavior === filter) csv += `${p.id},${p.x},${p.y},${p.behavior},${p.visitor},${p.timestamp}\n`; });
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${currentProject.name}_visitor${visitor}_analysis.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function downloadProfile() {
+  const profileData = {
+    Visitor: document.getElementById('visitorId').value,
+    StartTime: document.getElementById('startTime').value,
+    EndTime: document.getElementById('endTime').value,
+    Direction: document.getElementById('direction').value,
+    Audience: document.getElementById('audience').value,
+    Age: document.getElementById('age').value,
+    Gender: document.getElementById('gender').value,
+    PartySize: document.getElementById('partySize').value,
+    Comments: document.getElementById('comments').value
+  };
+  let csv = "Field,Value\n";
+  for (const key in profileData) csv += `${key},${profileData[key]}\n`;
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `Visitor${profileData.Visitor}_Profile.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function zoomIn() { scale *= 1.2; redrawPins(); }
+function zoomOut() { scale /= 1.2; redrawPins(); }
+function resetZoom() { scale = 1; redrawPins(); }
+
+listProjects();
+</script>
 </body>
 </html>
-
