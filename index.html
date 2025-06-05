@@ -20,7 +20,6 @@
   <h1>Exhibition Behaviour Tracker</h1>
   <input type="file" id="floorUpload" accept="image/*">
   <input type="text" id="projectName" placeholder="Project name">
-  <input type="password" id="projectPassword" placeholder="Set project password">
   <button onclick="createProject()">Create Project</button>
   <h2>Saved Projects</h2>
   <ul id="projectList"></ul>
@@ -96,12 +95,11 @@ const ctx = canvas.getContext('2d');
 function createProject() {
   const name = document.getElementById('projectName').value.trim();
   const file = document.getElementById('floorUpload').files[0];
-  const password = document.getElementById('projectPassword').value;
-  if (!name || !file || !password) return alert("Fill all fields.");
+  if (!name || !file) return alert("Please fill all fields.");
   const reader = new FileReader();
   reader.onload = () => {
-    const project = { name, image: reader.result, pins: [], behaviors: [], password };
-    localStorage.setItem(name, JSON.stringify(project));
+    const project = { name, image: reader.result, pins: [], behaviors: [] };
+    localStorage.setItem("project_" + name, JSON.stringify(project));
     openProject(name);
   };
   reader.readAsDataURL(file);
@@ -111,36 +109,32 @@ function listProjects() {
   const list = document.getElementById('projectList');
   list.innerHTML = '';
   Object.keys(localStorage).forEach(key => {
-    const project = JSON.parse(localStorage.getItem(key));
-    if (project?.image) {
+    if (key.startsWith("project_")) {
+      const name = key.replace("project_", "");
       const li = document.createElement('li');
-      li.innerHTML = `<button onclick="promptPassword('${key}')">${key}</button>`;
+      li.innerHTML = `<button onclick="openProject('${name}')">${name}</button>`;
       list.appendChild(li);
     }
   });
 }
 
-function promptPassword(name) {
-  const entered = prompt("Enter password:");
-  const proj = JSON.parse(localStorage.getItem(name));
-  if (entered === proj.password) openProject(name);
-  else alert("Incorrect password");
-}
-
 function openProject(name) {
-  currentProject = JSON.parse(localStorage.getItem(name));
-  pins = currentProject.pins || [];
-  behaviors = currentProject.behaviors || [];
+  const project = JSON.parse(localStorage.getItem("project_" + name));
+  if (!project) return alert("Project not found.");
+  currentProject = project;
+  pins = project.pins || [];
+  behaviors = project.behaviors || [];
   document.getElementById('dashboardView').style.display = 'none';
   document.getElementById('projectView').style.display = 'block';
-  document.getElementById('projectTitle').textContent = currentProject.name;
+  document.getElementById('projectTitle').textContent = name;
   img.onload = () => { ctx.setTransform(1, 0, 0, 1, 0, 0); scale = 1; ctx.drawImage(img, 0, 0); redrawPins(); };
-  img.src = currentProject.image;
+  img.src = project.image;
   updateBehaviorOptions();
 }
 
 function updateBehaviorOptions() {
-  const bSel = document.getElementById('behaviorType'), fSel = document.getElementById('filterType');
+  const bSel = document.getElementById('behaviorType');
+  const fSel = document.getElementById('filterType');
   bSel.innerHTML = ''; fSel.innerHTML = '<option value="All">All Behaviours</option>';
   behaviors.forEach(b => {
     const o1 = new Option(b.name, b.name); o1.dataset.color = b.color;
@@ -166,7 +160,7 @@ function backToDashboard() {
 
 function deleteProject() {
   if (currentProject && confirm("Delete this project?")) {
-    localStorage.removeItem(currentProject.name);
+    localStorage.removeItem("project_" + currentProject.name);
     backToDashboard();
   }
 }
@@ -222,7 +216,7 @@ function resetVisitorPins() {
 
 function saveProject() {
   currentProject.pins = pins; currentProject.behaviors = behaviors;
-  localStorage.setItem(currentProject.name, JSON.stringify(currentProject));
+  localStorage.setItem("project_" + currentProject.name, JSON.stringify(currentProject));
   alert("Saved!");
 }
 
